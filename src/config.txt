@@ -1,0 +1,7 @@
+[DEFAULT]
+index_folder=index_folder
+wiki_terms=Barack Obama,Donald Trump
+bing_terms=Barack Obama,Hillary Clinton,Republican elections 2024
+query=Trump campaign New Hampshire
+model=all-MiniLM-L6-v2
+max_index_memory_usage=10MB
