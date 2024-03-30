@@ -1,4 +1,5 @@
 from autofaiss_index import AutoFaissSentenceSearch
+from CrossEncoderSearch import CrossencoderSearch
 import configparser
 
 def load_index_and_search(query, sentence_model,index_folder,max_index_memory_usage):
