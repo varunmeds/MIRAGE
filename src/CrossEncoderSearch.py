@@ -1,7 +1,6 @@
 import os
 import re
 from sentence_transformers import CrossEncoder
-from sentence_transformers import SentenceTransformer
 
 class CrossencoderSearch:
 
@@ -18,8 +17,3 @@ class CrossencoderSearch:
         self.final_pairs.sort(key=lambda x: x[2])
         self.final_pairs.reverse()
         return self.final_pairs
-
-        
-        
-        
-
