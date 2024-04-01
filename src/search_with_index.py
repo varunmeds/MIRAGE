@@ -23,4 +23,9 @@ if __name__ == "__main__":
     
     results = load_index_and_search(query, model, index_folder, max_index_memory_usage)
 
+    if(config['DEFAULT']['cross_encoder_rerank']):
+        ce = CrossencoderSearch(query,results,run_cross_encoding=True)
+        outputs = ce.run_cross_encoder()
+        return outputs
+    
     print(results)
