@@ -1,16 +1,13 @@
-import os
-import re
 from sentence_transformers import CrossEncoder
 
 class CrossencoderSearch:
 
-    def __init__(self,query,retrieved_docs,run_cross_encoding=False):
+    def __init__(self,query,retrieved_docs):
 
         self.query=query
         self.pairs=retrieved_docs
         self.final_pairs=[]
-        if run_cross_encoding:
-            self.cross_encoding_model= CrossEncoder('BAAI/bge-base-en-v1.5')
+        self.cross_encoding_model= CrossEncoder('BAAI/bge-base-en-v1.5')
 
     def run_cross_encoder(self):
         self.final_pairs = [[self.query, doc_text, self.cross_encoding_model.predict([self.query, doc_text])] for doc_text in self.pairs]
