@@ -16,4 +16,4 @@ class CrossencoderSearch:
         return self.final_pairs
         
 def dict_to_list(lst):
-    return [''.join(d['Context Before']) + d['Main Sentence'] + ''.join(d['Context After']) for d in lst]
+    return [''.join(d['Context Before']) + d['Main Sentence'] + '.'.join(d['Context After']) for d in lst]
