@@ -45,6 +45,16 @@ To conduct searches and retrieve relevant sentences:
 
    This operation retrieves the most closely matching sentence embeddings for your query and provides `N` sentences before and after the identified sentence, offering a richer context.
 
+## Cross Encoder Inclusion 
+To conduct a re-ranking process for the matched sentence embedding retrieved by the search operation , based on an proximity score for each embedding with the query , via a cross encoder :
+
+1. Open `src/config.txt` and modify `cross_encoder_rerank` to True.
+2. From the `src` directory, run:
+
+    ```bash
+    python search_with_index.py
+    ```
+
 ## Future Directions
 MIRAGE is continually evolving, with plans to incorporate hypothetical document embeddings and step-back prompting to refine the retrieval process. The long-term vision involves experimenting with multimodal embeddings, potentially integrating with Meta's Imagebind project or the LLAVA project, to explore advanced reasoning and captioning capabilities across various media modalities.
 
