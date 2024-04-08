@@ -14,3 +14,6 @@ class CrossencoderSearch:
         self.final_pairs.sort(key=lambda x: x[2])
         self.final_pairs.reverse()
         return self.final_pairs
+        
+def dict_to_list(lst):
+    return [''.join(d['Context Before']) + d['Main Sentence'] + ''.join(d['Context After']) for d in lst]
