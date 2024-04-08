@@ -49,7 +49,7 @@ To conduct searches and retrieve relevant sentences:
 To conduct a re-ranking process for the matched sentence embedding retrieved by the search operation , based on an proximity score for each embedding with the query , via a cross encoder :
 
 1. Open `src/config.txt` and modify `cross_encoder_rerank` to True.
-2. 2. From the `src` directory, run:
+2. From the `src` directory, run:
 
     ```bash
     python search_with_index.py
