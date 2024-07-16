@@ -22,6 +22,7 @@ class AutoFaissSentenceSearch:
             
         self.max_index_memory_usage = max_index_memory_usage
         self.sentence_model = SentenceTransformer(sentence_model)
+        self.matryoshka_flag = sentence_model
         self.index = None
 
     def preprocess_text(self, text):
@@ -47,7 +48,7 @@ class AutoFaissSentenceSearch:
         # Directories
         current_working_directory = os.getcwd()
         wiki_dir = os.path.join(current_working_directory,'rag_database','wikipedia')
-        bing_dir = os.path.join(current_working_directory,'rag_database','bing_search')
+        #bing_dir = os.path.join(current_working_directory,'rag_database','bing_search')
     
         # Process Wikipedia files
         for filename in sorted(os.listdir(wiki_dir)):
@@ -68,7 +69,7 @@ class AutoFaissSentenceSearch:
                 processed_files.add(filename)
     
         # Process Bing files
-        for hash_dir in os.listdir(bing_dir):
+        '''for hash_dir in os.listdir(bing_dir):
             hash_dir_path = os.path.join(bing_dir, hash_dir)
             if os.path.isdir(hash_dir_path):
                 for filename in sorted(os.listdir(hash_dir_path)):
@@ -86,7 +87,7 @@ class AutoFaissSentenceSearch:
                             for line in json_data.get('PageText', []):
                                 new_data.append({'filename': filename, 'text': line, 'position': position})
                                 position += 1
-                        processed_files.add(filename)
+                        processed_files.add(filename)'''
     
         if new_data_found:
             new_df = pd.DataFrame(new_data, columns=['filename', 'text', 'position'])
@@ -105,6 +106,11 @@ class AutoFaissSentenceSearch:
         return self.df
     
     def generate_embeddings(self, dataframe):
+        if(self.matryoshka_flag=='tomaarsen/mpnet-base-nli-matryoshka'):
+            matryoshka_dim = 64
+            embeddings = self.sentence_model.encode(dataframe['text'])
+            embeddings = embeddings[..., :matryoshka_dim]
+            return embeddings
         embeddings = []
         for text in tqdm(dataframe['text']):
             preprocessed_text = self.preprocess_text(text)
