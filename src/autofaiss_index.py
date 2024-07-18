@@ -12,17 +12,22 @@ from tqdm import tqdm
 from autofaiss import build_index
 
 from sentence_transformers import SentenceTransformer
+import torch.nn.functional as F
 
 class AutoFaissSentenceSearch:
-    def __init__(self,sentence_model, index_folder, max_index_memory_usage='10MB'):
+    def __init__(self,sentence_model, index_folder, max_index_memory_usage='10MB',matryoshka=False,matryoshka_dim=128):
         self.index_folder = os.path.abspath(index_folder)
         
         if not os.path.exists(self.index_folder):
             os.makedirs(self.index_folder)
             
         self.max_index_memory_usage = max_index_memory_usage
-        self.sentence_model = SentenceTransformer(sentence_model)
-        self.matryoshka_flag = sentence_model
+        self.matryoshka = matryoshka
+        if self.matryoshka:
+            self.sentence_model = SentenceTransformer('nomic-ai/nomic-embed-text-v1.5',trust_remote_code=True)
+            self.matryoshka_dim = int(matryoshka_dim)
+        else:
+            self.sentence_model = SentenceTransformer(sentence_model)
         self.index = None
 
     def preprocess_text(self, text):
@@ -106,11 +111,13 @@ class AutoFaissSentenceSearch:
         return self.df
     
     def generate_embeddings(self, dataframe):
-        if(self.matryoshka_flag=='tomaarsen/mpnet-base-nli-matryoshka'):
-            matryoshka_dim = 64
-            embeddings = self.sentence_model.encode(dataframe['text'])
-            embeddings = embeddings[..., :matryoshka_dim]
-            return embeddings
+        if(self.matryoshka):
+            sentences = dataframe['text']
+            embeddings = self.sentence_model.encode(sentences, convert_to_tensor=True)
+            embeddings = F.layer_norm(embeddings, normalized_shape=(embeddings.shape[1],))
+            embeddings = embeddings[:, :self.matryoshka_dim]
+            embeddings = F.normalize(embeddings, p=2, dim=1)
+            return list(embeddings)
         embeddings = []
         for text in tqdm(dataframe['text']):
             preprocessed_text = self.preprocess_text(text)
