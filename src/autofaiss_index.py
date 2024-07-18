@@ -181,9 +181,14 @@ class AutoFaissSentenceSearch:
         # self.index, _ = build_index(embeddings_tensor.numpy(), save_on_disk=False)
 
     def search_sentences(self, query, top_k=5, context_size=3):
-        preprocessed_query = self.preprocess_text(query)
-        q_embedding = self.sentence_model.encode(preprocessed_query, normalize_embeddings=True)
-        q_embedding = q_embedding.reshape(1, -1)
+        preprocessed_query = list(self.preprocess_text(query))
+        q_embedding = self.sentence_model.encode(preprocessed_query,convert_to_tensor=True)
+        q_embedding = F.layer_norm(q_embedding, normalized_shape=(q_embedding.shape[1],))
+        q_embedding = q_embedding[:, :self.matryoshka_dim]
+        q_embedding = F.normalize(q_embedding, p=2, dim=1)
+        #q_embedding = q_embedding.reshape(1, -1)
+        print("Query embedding dimensions:", q_embedding.shape)
+        print("FAISS index dimensions:", self.index.d)
         _, I = self.index.search(q_embedding, top_k)
 
         results = []
