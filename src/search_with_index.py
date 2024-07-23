@@ -23,18 +23,12 @@ if __name__ == "__main__":
     matryoshka = config['DEFAULT']['matryoshka']
     matryoshka_dim = config['DEFAULT']['matryoshka_dim']
     
-    start_time = time.time()
     results = load_index_and_search(query, model, index_folder, max_index_memory_usage,matryoshka,matryoshka_dim)
-    end_time = time.time()
-
-    time_taken = end_time - start_time
     input=dict_to_list(results)
 
     if(config['DEFAULT']['cross_encoder_rerank']):
         ce = CrossencoderSearch(query,input)
         outputs = ce.run_cross_encoder()
         print(outputs)
-        print(time_taken)
     else:
         print(results)
-        print(time_taken)
