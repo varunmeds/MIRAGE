@@ -7,6 +7,7 @@ import faiss
 import numpy as np
 import configparser
 import pandas as pd
+import time
 
 from tqdm import tqdm
 from autofaiss import build_index
@@ -23,11 +24,13 @@ class AutoFaissSentenceSearch:
             
         self.max_index_memory_usage = max_index_memory_usage
         self.matryoshka = matryoshka
-        if self.matryoshka:
+        print(self.matryoshka == 'True')
+        if (self.matryoshka == 'True'):
             self.sentence_model = SentenceTransformer('nomic-ai/nomic-embed-text-v1.5',trust_remote_code=True)
             self.matryoshka_dim = int(matryoshka_dim)
         else:
             self.sentence_model = SentenceTransformer(sentence_model)
+        print(self.sentence_model)
         self.index = None
 
     def preprocess_text(self, text):
@@ -111,7 +114,7 @@ class AutoFaissSentenceSearch:
         return self.df
     
     def generate_embeddings(self, dataframe):
-        if(self.matryoshka):
+        if(self.matryoshka == 'True'):
             sentences = dataframe['text']
             embeddings = self.sentence_model.encode(sentences, convert_to_tensor=True)
             embeddings = F.layer_norm(embeddings, normalized_shape=(embeddings.shape[1],))
@@ -182,13 +185,17 @@ class AutoFaissSentenceSearch:
 
     def search_sentences(self, query, top_k=5, context_size=3):
         preprocessed_query = list(self.preprocess_text(query))
-        q_embedding = self.sentence_model.encode(preprocessed_query,convert_to_tensor=True)
-        q_embedding = F.layer_norm(q_embedding, normalized_shape=(q_embedding.shape[1],))
-        q_embedding = q_embedding[:, :self.matryoshka_dim]
-        q_embedding = F.normalize(q_embedding, p=2, dim=1)
-        #q_embedding = q_embedding.reshape(1, -1)
-        print("Query embedding dimensions:", q_embedding.shape)
-        print("FAISS index dimensions:", self.index.d)
+        if(self.matryoshka == 'True'):
+            print('good run')
+            q_embedding = self.sentence_model.encode(preprocessed_query,convert_to_tensor=True)
+            q_embedding = F.layer_norm(q_embedding, normalized_shape=(q_embedding.shape[1],))
+            q_embedding = q_embedding[:, :self.matryoshka_dim]
+            q_embedding = F.normalize(q_embedding, p=2, dim=1)
+        else:
+            print('bad run')
+            q_embedding = self.sentence_model.encode(preprocessed_query, normalize_embeddings=True)
+            #q_embedding = q_embedding.reshape(1, -1)
+        start_time = time.time()
         _, I = self.index.search(q_embedding, top_k)
 
         results = []
@@ -215,6 +222,9 @@ class AutoFaissSentenceSearch:
             results.append(sentence_info)
             if len(results) >= top_k:
                 break
+        end_time = time.time()
+        time_taken = end_time - start_time
+        print(time_taken)
 
         return results
 
