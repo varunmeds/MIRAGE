@@ -2,9 +2,10 @@
 index_folder=index_folder
 wiki_terms=philosophy 
 bing_terms= philosophy and it's different types
-query=concept of philosophy
+test_flag=True
+query=text_list.txt
 model=all-MiniLM-L6-v2
 max_index_memory_usage=10MB
 cross_encoder_rerank=False
 matryoshka=True
-matryoshka_dim=128
+matryoshka_dim=64
