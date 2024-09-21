@@ -3,7 +3,7 @@ import re
 import json
 import glob
 import faiss
-# import torch
+import torch
 import numpy as np
 import configparser
 import pandas as pd
@@ -12,7 +12,7 @@ import time
 import random
 import csv
 from datasets import load_dataset
-
+import hashlib
 from tqdm import tqdm
 from autofaiss import build_index
 
@@ -124,17 +124,33 @@ class AutoFaissSentenceSearch:
     def load_dataframe(self, filename="dataframe.pkl"):
         return pd.read_pickle(f"{self.index_folder}/{filename}")
     
-    def create_dataframe_from_texts(self, texts, default_filename="default.txt"):
+    def generate_hash(self,input_string: str) -> str:
+        return hashlib.md5(input_string.encode()).hexdigest()
+    
+    def create_dataframe_from_texts(self,texts):   
         data = []
         for position, text in enumerate(texts):
             data.append({
-                'filename': default_filename, 
+                'filename': self.generate_hash(text), 
                 'text': text, 
                 'position': position
             })
-        
+
         df = pd.DataFrame(data, columns=['filename', 'text', 'position'])
+        df = df.drop_duplicates(['filename'])
         return df 
+    
+    def batchify(self,lst, batch_size):
+        for i in range(0, len(lst), batch_size):
+            yield lst[i:i + batch_size]
+    
+    def pad_batch(self,tensor, max_size):
+        # If the batch is smaller, pad it with zeros along the first dimension
+        if tensor.shape[0] < max_size:
+            padding = torch.zeros(max_size - tensor.shape[0], tensor.shape[1], device=tensor.device)
+            return torch.cat([tensor, padding], dim=0)
+        else:
+            return tensor
     
     def generate_embeddings(self, dataframe):
         if(self.matryoshka == True):
@@ -151,19 +167,31 @@ class AutoFaissSentenceSearch:
             embeddings.append(embedding)
         return embeddings
     
-    def generate_embeddings_from_texts(self, dataframe, batch_size=32):
+    def generate_embeddings_from_texts(self, dataframe, batch_size=8):
         embeddings = []
 
         if self.matryoshka:
-            sentences = dataframe['text'].tolist()
-            embeddings = self.sentence_model.encode(batch, convert_to_tensor=True)
-            batch_embeddings = F.layer_norm(batch_embeddings, normalized_shape=(batch_embeddings.shape[1],))
-            batch_embeddings = batch_embeddings[:, :self.matryoshka_dim]
-            batch_embeddings = F.normalize(batch_embeddings, p=2, dim=1)
-            embeddings.extend(batch_embeddings.cpu().numpy())
-            return list(embeddings)
+            for batch_texts in tqdm(self.batchify(dataframe['text'], batch_size)):
+                # Preprocess all texts in the batch
+                preprocessed_batch = [self.preprocess_text(text) for text in batch_texts]
     
-    # For the case where matryoshka is False, also process in batches
+                # Encode the batch of texts and move to MPS
+                batch_embeddings = self.sentence_model.encode(preprocessed_batch, convert_to_tensor=True)
+    
+                # Apply layer normalization
+                batch_embeddings = F.layer_norm(batch_embeddings, normalized_shape=batch_embeddings.shape[1:])
+    
+                # Truncate embeddings (if needed)
+                batch_embeddings = batch_embeddings[:, :self.matryoshka_dim]
+    
+                # Apply normalization
+                batch_embeddings = F.normalize(batch_embeddings, p=2, dim=1)
+    
+                # Append processed embeddings to the list
+                embeddings.append(batch_embeddings)
+            return embeddings
+    
+        # For the case where matryoshka is False, also process in batches
         else:
             sentences = dataframe['text'].tolist()
             for i in range(0, len(sentences), batch_size):
@@ -230,31 +258,42 @@ class AutoFaissSentenceSearch:
         print(f"Index built and saved to {index_path}")
 
 
-    def build_index_from_texts(self):
-        embeddings = self.generate_embeddings(self.df)
-        embeddings_array = np.array(embeddings)
+    def build_index_from_texts(self,dataframe,batch_size,query_size,dataframe_size):
+        embeddings = self.generate_embeddings(dataframe=dataframe,batch_size=batch_size)
+        flattened_embeddings_list = []
+        for batch in embeddings:
+            # Assume batch is a tensor of shape [batch_size, embedding_dim]
+            for embedding in batch:
+                flattened_embeddings_list.append(embedding)
+        #embeddings_array = np.array(embeddings)
+        sliced_embeddings_list = flattened_embeddings_list[query_size:dataframe_size]
+        max_batch_size = max(tensor.shape[0] for tensor in embeddings[query_size:dataframe_size])
+        padded_embeddings_list = [self.pad_batch(tensor, max_batch_size) for tensor in sliced_embeddings_list]
+        sliced_embeddings_tensor = torch.stack(padded_embeddings_list)
+        sliced_embeddings_array = sliced_embeddings_tensor.cpu().numpy()
 
-        if not os.path.exists(self.index_folder):
-            os.makedirs(self.index_folder)
+        # Create directory if it doesn't exist
+        if not os.path.exists('test_index_folder'):
+            os.makedirs('test_index_folder')
 
         # Define the paths for saving the embeddings and index files
-        embeddings_path = os.path.join(self.index_folder, "embeddings.npy")
-        index_path = os.path.join(self.index_folder, "knn.index")
-        index_infos_path = os.path.join(self.index_folder, "infos.json")
+        embeddings_path = os.path.join('test_index_folder')
+        index_path = os.path.join('test_index_folder', "knn.index")
+        index_infos_path = os.path.join('test_index_folder', "infos.json")
 
-        # Save the embeddings to a file
-        np.save(embeddings_path, embeddings_array)
+        # Save the sliced embeddings to a file
+        np.save(os.path.join(embeddings_path,'embeddings.npy'), sliced_embeddings_array)
 
         # Build and save the index using AutoFaiss
         build_index(
-            embeddings=self.index_folder,
+            embeddings=embeddings_path,
             index_path=index_path,
             index_infos_path=index_infos_path,
-            max_index_memory_usage=self.max_index_memory_usage
+            max_index_memory_usage='10MB'
         )
 
-        self.df.to_pickle(os.path.join(self.index_folder, "dataframe.pkl"))
-        
+        dataframe.to_pickle(os.path.join(self.index_folder, "dataframe.pkl"))
+        self.df=dataframe
         print(f"Index built and saved to {index_path}")
         
         # embeddings_tensor = torch.tensor(np.array(embeddings), dtype=torch.float32)
