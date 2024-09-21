@@ -28,18 +28,18 @@ def load_index_and_test(query, sentence_model, index_folder, max_index_memory_us
     texts_query_small = texts_query[:texts_query_split_index]
     texts_list_small = texts_query[texts_query_split_index:]'''
     subset_list = loaded_text_list[:20000]
-    texts_query_small = subset_list[:2000]
-    texts_list_small = subset_list[2000:20000]
+    texts_list_query = subset_list[:2000]
+    texts_list_database = subset_list[2000:20000]
     print("Start of function")
-    df = afss.create_dataframe_from_texts(texts_list_small, default_filename=test_file_path)
+    df = afss.create_dataframe_from_texts(texts_list_database)
     print("database created")
     afss.save_dataframe_from_texts(df, filename="test_dataframe.pkl")
     print("database saved")
-    afss.build_index_from_texts()
+    afss.build_index_from_texts(df,8,2000,20000)
     print("index built for database")
     afss.load_index()
     print("index loaded")
-    search_results = afss.search_sentences_test(texts_query_small)
+    search_results = afss.search_sentences_test(texts_list_query)
     print("End of function")
     return search_results
 
